@@ -1,0 +1,11 @@
+# The generated data and images
+*.jpg
+*.png
+dataset/
+
+# Large model weights
+*.pt
+*.safetensors
+
+# Python caching
+__pycache__/
