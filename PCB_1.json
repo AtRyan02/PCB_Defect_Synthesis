@@ -1,0 +1,212 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 519877892057798,
+      "steps": 35,
+      "cfg": 7.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.85,
+      "model": [
+        "23",
+        0
+      ],
+      "positive": [
+        "29",
+        0
+      ],
+      "negative": [
+        "29",
+        1
+      ],
+      "latent_image": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "(Macro photography:1.2), (microscopic mouse bite defect on trace edge:1.5), (a semi-circular notch cutting into the dark green trace:1.4), missing copper exposing the bright emerald green substrate, concave nick on the wire boundary, seamless etching anomaly, (localized emerald green gap intruding the trace:1.3), integrated into the existing PCB layout, sharp industrial microscopic imaging, high-precision AOI inspection view.",
+      "clip": [
+        "23",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "(perfectly straight traces:1.5), (healed circuit:1.4), (intact wire edges:1.5), smooth continuous lines, (silvery solder:1.5), metallic tin luster, (full disconnection:1.2), completely broken trace, watercolor, illustration, cartoon, low resolution, blurry, artifacts, scifi elements, glowing lights, distorted PCB layout.",
+      "clip": [
+        "23",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "12",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "10": {
+    "inputs": {
+      "image": "04.JPG"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "11": {
+    "inputs": {
+      "image": "clipspace/clipspace-painted-masked-1774948938092.png [input]"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "12": {
+    "inputs": {
+      "ckpt_name": "juggernautXL_version5.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）"
+    }
+  },
+  "15": {
+    "inputs": {
+      "grow_mask_by": 5,
+      "pixels": [
+        "10",
+        0
+      ],
+      "vae": [
+        "12",
+        2
+      ],
+      "mask": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE编码（局部重绘）"
+    }
+  },
+  "16": {
+    "inputs": {
+      "control_net_name": "diffusion_pytorch_model_V2.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "加载ControlNet模型"
+    }
+  },
+  "23": {
+    "inputs": {
+      "lora_name": "PCB_Style_[SDXL]_-_Snoodler.safetensors",
+      "strength_model": 0.9,
+      "strength_clip": 1,
+      "model": [
+        "12",
+        0
+      ],
+      "clip": [
+        "12",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "加载LoRA"
+    }
+  },
+  "28": {
+    "inputs": {
+      "low_threshold": 0.4,
+      "high_threshold": 0.8,
+      "image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "Canny",
+    "_meta": {
+      "title": "Canny边缘检测"
+    }
+  },
+  "29": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 0.3,
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "control_net": [
+        "16",
+        0
+      ],
+      "vae": [
+        "12",
+        2
+      ],
+      "image": [
+        "28",
+        0
+      ],
+      "mask": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "ControlNetInpaintingAliMamaApply",
+    "_meta": {
+      "title": "应用ControlNet（阿里妈妈局部重绘）"
+    }
+  }
+}
