@@ -1,0 +1,70 @@
+{
+    "created_at": "2026-05-27T14:56:37",
+    "source_image": "PCB_Dataset/04.JPG",
+    "defect_type": "mouse_bite",
+    "class_id": 4,
+    "sample_index": 7,
+    "seed": 42,
+    "center": [
+        2486,
+        1854
+    ],
+    "radius": 11,
+    "substrate_color_bgr": [
+        23,
+        98,
+        1
+    ],
+    "geometry": {
+        "attempts_used": 1,
+        "center": [
+            2486,
+            1854
+        ],
+        "radius": 11,
+        "defect_area_px": 200,
+        "circle_area_px": 377,
+        "overlap_ratio": 0.5305039787798409,
+        "bbox_xyxy_px": [
+            2475,
+            1843,
+            2497,
+            1854
+        ],
+        "bbox_width_px": 23,
+        "bbox_height_px": 12
+    },
+    "yolo_line": "4 0.813482 0.750203 0.007526 0.004870",
+    "crop": {
+        "crop_box_xyxy_px": [
+            2422,
+            1784,
+            2550,
+            1912
+        ],
+        "crop_size": 128,
+        "crop_yolo_line": "4 0.500000 0.503906 0.179688 0.093750"
+    },
+    "parameters": {
+        "min_radius": 6,
+        "max_radius": 14,
+        "max_attempts": 3000,
+        "component_min_area": 5000,
+        "border_margin": 40,
+        "min_overlap_area": 30,
+        "min_bbox_width": 6,
+        "min_bbox_height": 4,
+        "max_overlap_ratio": 0.85
+    },
+    "outputs": {
+        "synthetic": "outputs\\mouse_bite\\04_mouse_bite_0007.png",
+        "mask": "outputs\\mouse_bite\\04_mouse_bite_0007_mask.png",
+        "debug": "outputs\\mouse_bite\\04_mouse_bite_0007_debug.png",
+        "label": "outputs\\mouse_bite\\04_mouse_bite_0007.txt",
+        "crop": "outputs\\mouse_bite\\04_mouse_bite_0007_crop.png",
+        "crop_mask": "outputs\\mouse_bite\\04_mouse_bite_0007_crop_mask.png",
+        "crop_debug": "outputs\\mouse_bite\\04_mouse_bite_0007_crop_debug.png",
+        "crop_label": "outputs\\mouse_bite\\04_mouse_bite_0007_crop.txt",
+        "metadata": "outputs\\mouse_bite\\04_mouse_bite_0007_metadata.json"
+    }
+}

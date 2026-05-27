@@ -1,0 +1,12 @@
+{
+    "trace_hsv_lower": [
+        55,
+        0,
+        0
+    ],
+    "trace_hsv_upper": [
+        100,
+        255,
+        75
+    ]
+}

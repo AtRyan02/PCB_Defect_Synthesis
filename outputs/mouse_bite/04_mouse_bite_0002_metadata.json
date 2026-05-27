@@ -1,0 +1,70 @@
+{
+    "created_at": "2026-05-27T14:56:33",
+    "source_image": "PCB_Dataset/04.JPG",
+    "defect_type": "mouse_bite",
+    "class_id": 4,
+    "sample_index": 2,
+    "seed": 42,
+    "center": [
+        2690,
+        239
+    ],
+    "radius": 10,
+    "substrate_color_bgr": [
+        23,
+        104,
+        6
+    ],
+    "geometry": {
+        "attempts_used": 1,
+        "center": [
+            2690,
+            239
+        ],
+        "radius": 10,
+        "defect_area_px": 166,
+        "circle_area_px": 317,
+        "overlap_ratio": 0.5236593059936908,
+        "bbox_xyxy_px": [
+            2680,
+            229,
+            2691,
+            249
+        ],
+        "bbox_width_px": 12,
+        "bbox_height_px": 21
+    },
+    "yolo_line": "4 0.878763 0.096997 0.003927 0.008523",
+    "crop": {
+        "crop_box_xyxy_px": [
+            2622,
+            175,
+            2750,
+            303
+        ],
+        "crop_size": 128,
+        "crop_yolo_line": "4 0.496094 0.500000 0.093750 0.164062"
+    },
+    "parameters": {
+        "min_radius": 6,
+        "max_radius": 14,
+        "max_attempts": 3000,
+        "component_min_area": 5000,
+        "border_margin": 40,
+        "min_overlap_area": 30,
+        "min_bbox_width": 6,
+        "min_bbox_height": 4,
+        "max_overlap_ratio": 0.85
+    },
+    "outputs": {
+        "synthetic": "outputs\\mouse_bite\\04_mouse_bite_0002.png",
+        "mask": "outputs\\mouse_bite\\04_mouse_bite_0002_mask.png",
+        "debug": "outputs\\mouse_bite\\04_mouse_bite_0002_debug.png",
+        "label": "outputs\\mouse_bite\\04_mouse_bite_0002.txt",
+        "crop": "outputs\\mouse_bite\\04_mouse_bite_0002_crop.png",
+        "crop_mask": "outputs\\mouse_bite\\04_mouse_bite_0002_crop_mask.png",
+        "crop_debug": "outputs\\mouse_bite\\04_mouse_bite_0002_crop_debug.png",
+        "crop_label": "outputs\\mouse_bite\\04_mouse_bite_0002_crop.txt",
+        "metadata": "outputs\\mouse_bite\\04_mouse_bite_0002_metadata.json"
+    }
+}

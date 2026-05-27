@@ -1,0 +1,70 @@
+{
+    "created_at": "2026-05-27T14:56:39",
+    "source_image": "PCB_Dataset/04.JPG",
+    "defect_type": "mouse_bite",
+    "class_id": 4,
+    "sample_index": 10,
+    "seed": 42,
+    "center": [
+        1957,
+        1862
+    ],
+    "radius": 8,
+    "substrate_color_bgr": [
+        18,
+        99,
+        1
+    ],
+    "geometry": {
+        "attempts_used": 2,
+        "center": [
+            1957,
+            1862
+        ],
+        "radius": 8,
+        "defect_area_px": 105,
+        "circle_area_px": 197,
+        "overlap_ratio": 0.5329949238578681,
+        "bbox_xyxy_px": [
+            1949,
+            1854,
+            1957,
+            1870
+        ],
+        "bbox_width_px": 9,
+        "bbox_height_px": 17
+    },
+    "yolo_line": "4 0.639071 0.755682 0.002945 0.006899",
+    "crop": {
+        "crop_box_xyxy_px": [
+            1889,
+            1798,
+            2017,
+            1926
+        ],
+        "crop_size": 128,
+        "crop_yolo_line": "4 0.500000 0.500000 0.070312 0.132812"
+    },
+    "parameters": {
+        "min_radius": 6,
+        "max_radius": 14,
+        "max_attempts": 3000,
+        "component_min_area": 5000,
+        "border_margin": 40,
+        "min_overlap_area": 30,
+        "min_bbox_width": 6,
+        "min_bbox_height": 4,
+        "max_overlap_ratio": 0.85
+    },
+    "outputs": {
+        "synthetic": "outputs\\mouse_bite\\04_mouse_bite_0010.png",
+        "mask": "outputs\\mouse_bite\\04_mouse_bite_0010_mask.png",
+        "debug": "outputs\\mouse_bite\\04_mouse_bite_0010_debug.png",
+        "label": "outputs\\mouse_bite\\04_mouse_bite_0010.txt",
+        "crop": "outputs\\mouse_bite\\04_mouse_bite_0010_crop.png",
+        "crop_mask": "outputs\\mouse_bite\\04_mouse_bite_0010_crop_mask.png",
+        "crop_debug": "outputs\\mouse_bite\\04_mouse_bite_0010_crop_debug.png",
+        "crop_label": "outputs\\mouse_bite\\04_mouse_bite_0010_crop.txt",
+        "metadata": "outputs\\mouse_bite\\04_mouse_bite_0010_metadata.json"
+    }
+}
