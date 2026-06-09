@@ -1,0 +1,8 @@
+{
+    "load_image": "1",
+    "load_mask": "18",
+    "positive": "6",
+    "negative": "7",
+    "ksampler": "8",
+    "save_image": "9"
+}

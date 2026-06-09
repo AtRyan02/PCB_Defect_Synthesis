@@ -1,48 +1,48 @@
 {
-    "created_at": "2026-05-27T15:48:08",
-    "source_image": "PCB_Dataset/04.JPG",
+    "created_at": "2026-06-08T11:51:32",
+    "source_image": "PCB_Dataset\\04.JPG",
     "defect_type": "open_circuit",
     "class_id": 1,
     "sample_index": 9,
     "center_xy": [
-        1000,
-        1842
+        2135,
+        598
     ],
     "geometry": {
-        "gap_length": 14,
-        "cut_width": 16,
-        "local_trace_half_width": 6.0,
+        "gap_length": 18,
+        "cut_width": 21,
+        "local_trace_half_width": 7.990699768066406,
         "tangent": [
-            -0.0024192643284438966,
-            0.9999970735757726
+            -0.05850375278292209,
+            0.9982871885937006
         ],
-        "pca_elongation": 15.705117304852442,
+        "pca_elongation": 7.15815409499728,
         "pad_v_min": 120,
         "pad_s_max": 90,
         "pad_dilate": 28,
         "pca_radius": 24,
         "min_elongation": 4.0,
-        "defect_area_px": 182,
+        "defect_area_px": 302,
         "defect_bbox_size_px": [
-            13,
-            16
+            17,
+            20
         ],
-        "attempts_used": 5
+        "attempts_used": 3
     },
     "substrate_color_bgr": [
-        15,
-        94,
-        0
+        22,
+        108,
+        1
     ],
-    "full_yolo_label": "1 0.326898 0.747362 0.004254 0.006494",
+    "full_yolo_label": "1 0.698298 0.242492 0.005563 0.008117",
     "full_bbox_px": {
-        "x_min": 993,
-        "y_min": 1834,
-        "x_max": 1005,
-        "y_max": 1849,
-        "width": 13,
-        "height": 16,
-        "area_px": 182
+        "x_min": 2126,
+        "y_min": 588,
+        "x_max": 2142,
+        "y_max": 607,
+        "width": 17,
+        "height": 20,
+        "area_px": 302
     },
     "generation_parameters": {
         "min_gap_length": 10,
@@ -64,7 +64,7 @@
         "pad_dilate": 28,
         "pca_radius": 24,
         "min_elongation": 4.0,
-        "seed": 42,
+        "seed": 1142,
         "crop_size": 128
     },
     "outputs": {
@@ -75,21 +75,21 @@
         "metadata_path": "outputs\\open_circuit\\04_open_circuit_0009_metadata.json",
         "crop": {
             "crop_box_xyxy": [
-                935,
-                1778,
-                1063,
-                1906
+                2070,
+                534,
+                2198,
+                662
             ],
             "crop_size": 128,
-            "crop_yolo_label": "1 0.500000 0.496094 0.101562 0.125000",
+            "crop_yolo_label": "1 0.500000 0.496094 0.132812 0.156250",
             "crop_bbox_px": {
-                "x_min": 58,
-                "y_min": 56,
-                "x_max": 70,
-                "y_max": 71,
-                "width": 13,
-                "height": 16,
-                "area_px": 182
+                "x_min": 56,
+                "y_min": 54,
+                "x_max": 72,
+                "y_max": 73,
+                "width": 17,
+                "height": 20,
+                "area_px": 302
             },
             "crop_image_path": "outputs\\open_circuit\\04_open_circuit_0009_crop.png",
             "crop_mask_path": "outputs\\open_circuit\\04_open_circuit_0009_crop_mask.png",

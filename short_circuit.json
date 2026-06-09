@@ -1,0 +1,136 @@
+{
+  "1": {
+    "inputs": {
+      "image": "04_short_circuit_0020_crop.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "4": {
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "realistic PCB inspection image, matte dark green PCB traces, same local lighting and texture",
+      "clip": [
+        "10",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "white blob, silver material, solder, metallic object, changed geometry, extra traces, removed traces, blur",
+      "clip": [
+        "10",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "8": {
+    "inputs": {
+      "seed": 227395184691956,
+      "steps": 16,
+      "cfg": 2,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.05,
+      "model": [
+        "10",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "short_circuit",
+      "images": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "10": {
+    "inputs": {
+      "ckpt_name": "juggernautXL_version5.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）"
+    }
+  },
+  "17": {
+    "inputs": {
+      "grow_mask_by": 0,
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "10",
+        2
+      ],
+      "mask": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE编码（局部重绘）"
+    }
+  },
+  "18": {
+    "inputs": {
+      "image": "04_short_circuit_0020_crop.png",
+      "channel": "red"
+    },
+    "class_type": "LoadImageMask",
+    "_meta": {
+      "title": "加载图像（作为遮罩）"
+    }
+  }
+}

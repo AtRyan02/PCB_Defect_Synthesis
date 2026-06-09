@@ -1,49 +1,49 @@
 {
-    "created_at": "2026-05-27T14:56:36",
-    "source_image": "PCB_Dataset/04.JPG",
+    "created_at": "2026-06-08T13:03:37",
+    "source_image": "PCB_Dataset\\04.JPG",
     "defect_type": "mouse_bite",
     "class_id": 4,
     "sample_index": 5,
-    "seed": 42,
+    "seed": 1442,
     "center": [
-        1542,
-        364
+        1119,
+        1846
     ],
-    "radius": 12,
+    "radius": 8,
     "substrate_color_bgr": [
-        23,
-        103,
-        7
+        19,
+        96,
+        1
     ],
     "geometry": {
-        "attempts_used": 1,
+        "attempts_used": 2,
         "center": [
-            1542,
-            364
+            1119,
+            1846
         ],
-        "radius": 12,
-        "defect_area_px": 270,
-        "circle_area_px": 441,
-        "overlap_ratio": 0.6122448979591837,
+        "radius": 8,
+        "defect_area_px": 109,
+        "circle_area_px": 197,
+        "overlap_ratio": 0.5532994923857868,
         "bbox_xyxy_px": [
-            1533,
-            352,
-            1552,
-            376
+            1111,
+            1838,
+            1120,
+            1854
         ],
-        "bbox_width_px": 20,
-        "bbox_height_px": 25
+        "bbox_width_px": 10,
+        "bbox_height_px": 17
     },
-    "yolo_line": "4 0.504745 0.147727 0.006545 0.010146",
+    "yolo_line": "4 0.365020 0.749188 0.003272 0.006899",
     "crop": {
         "crop_box_xyxy_px": [
-            1478,
-            300,
-            1606,
-            428
+            1052,
+            1782,
+            1180,
+            1910
         ],
         "crop_size": 128,
-        "crop_yolo_line": "4 0.503906 0.500000 0.156250 0.195312"
+        "crop_yolo_line": "4 0.496094 0.500000 0.078125 0.132812"
     },
     "parameters": {
         "min_radius": 6,

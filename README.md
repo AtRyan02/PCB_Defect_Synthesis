@@ -2,15 +2,57 @@
 
 A topology-guided synthetic data generation pipeline for PCB defect detection.
 
-This project aims to generate controllable PCB defect samples for downstream object detection tasks. Instead of relying on prompt-only Stable Diffusion generation, the current pipeline first extracts PCB trace topology, injects rule-based defect geometry, and then renders the defect appearance using local PCB color statistics.
+This project generates controllable PCB defect samples for downstream YOLO-based object detection. The current pipeline uses a **geometry-first** strategy: PCB topology is extracted first, defect geometry is injected by rules, and appearance is rendered using local PCB color statistics. Stable Diffusion / ComfyUI is treated only as an optional low-strength appearance harmonizer, not as the primary defect generator.
 
-The generated samples include synthetic PCB images, defect masks, YOLO-format labels, defect-centered crops, debug visualizations, and metadata files.
+The generated samples include synthetic PCB images, binary defect masks, YOLO-format labels, defect-centered crops, debug visualizations, and metadata files.
 
 ---
 
-## 1. Project Motivation
+## 1. Current Project Status
 
-Real PCB defect samples are often difficult to collect, expensive to annotate, and highly imbalanced across defect categories. This project explores a controllable synthetic data factory for PCB defect generation, with the goal of improving YOLO-based detection performance under long-tail industrial inspection scenarios.
+The project has progressed from single-image defect synthesis on `04.JPG` to a multi-image, six-class synthetic dataset pipeline.
+
+Completed:
+
+- HSV threshold calibration
+- PCB trace topology extraction
+- Rule-based generation for six PCB defect classes
+- Multi-image batch generation across multiple PCB source images
+- YOLO-format label export
+- Defect-centered crop export
+- Normal / background crop generation with empty YOLO labels
+- YOLO dataset construction with grouped train / val / test split
+- Crop-level YOLO26 training experiments
+- Model selection comparison between YOLO26n and YOLO26s
+- Spur v2 generation logic update to reduce severe false positives
+- Spurious copper parameter refinement
+
+Current best crop-level configuration:
+
+```text
+Dataset: crop rule-based synthetic dataset + normal/background crops + spur_v2
+Model: YOLO26s
+Image size: 320
+Epochs: 30
+```
+
+Current best observed crop-level result:
+
+```text
+YOLO26s:
+Precision     ≈ 0.944
+Recall        ≈ 0.930
+mAP50         ≈ 0.952
+mAP50-95      ≈ 0.774
+```
+
+YOLO26s is selected as the default detector for subsequent horizontal comparison experiments.
+
+---
+
+## 2. Project Motivation
+
+Real PCB defect samples are difficult to collect, expensive to annotate, and often highly imbalanced across defect categories. This project explores a controllable synthetic data factory for PCB defect generation, with the goal of improving YOLO-based detection under long-tail industrial inspection scenarios.
 
 The current design follows a **geometry-first** strategy:
 
@@ -18,44 +60,33 @@ The current design follows a **geometry-first** strategy:
 2. Generate defect geometry in the binary structural domain.
 3. Render the defect back into the original image using local PCB color statistics.
 4. Export labels automatically in YOLO format.
-5. Optionally use Stable Diffusion / ComfyUI later as an appearance harmonizer.
+5. Optionally use Stable Diffusion / ComfyUI as a low-strength appearance harmonizer.
 
-This design avoids common prompt-only SD problems, such as unrealistic metallic artifacts, solder-like blobs, or topology distortion.
+This design avoids common prompt-only SD problems, such as unrealistic metallic artifacts, solder-like blobs, white blobs, hallucinated components, or topology distortion.
 
 ---
 
-## 2. Current Supported Defect Types
+## 3. Supported Defect Types
 
-The current implementation supports:
+| Class ID | Defect Type | Status | Script | Description |
+|---:|---|---|---|---|
+| 0 | Short Circuit | Implemented | `generate_short_circuit.py` | Adds a conductive bridge between adjacent traces |
+| 1 | Open Circuit | Implemented | `generate_open_circuit.py` | Cuts through a PCB trace to create a discontinuity |
+| 2 | Spur | Implemented, v2 updated | `generate_spur.py` | Adds a protruding copper branch from an existing trace |
+| 3 | Missing Hole | Implemented | `generate_missing_hole.py` | Replaces the center of a silver pad / solder joint with local trace-like color |
+| 4 | Mouse Bite | Implemented | `generate_mouse_bite.py` | Removes a small notch from the edge of a PCB trace |
+| 5 | Spurious Copper | Implemented, parameters refined | `generate_spurious_copper.py` | Adds detached or irregular extra copper residue near traces |
 
-| Defect Type | Status | Script | Description |
-|---|---|---|---|
-| Mouse Bite | Implemented | `generate_mouse_bite.py` | Removes a small notch from the edge of a PCB trace |
-| Open Circuit | Implemented | `generate_open_circuit.py` | Cuts through a PCB trace to create a discontinuity |
-| Short Circuit | Implemented | `generate_short_circuit.py` | Adds a conductive bridge between adjacent traces |
-| Spur | Implemented | `generate_spur.py` | Adds a small protruding branch from an existing trace |
-| Spurious Copper | Implemented | `generate_spurious_copper.py` | Adds detached or irregular extra copper residue near traces |
-| Missing Hole | Implemented | `generate_missing_hole.py` | Replaces the center of a silver pad / solder joint with local trace-like color |
-
-Current stable modules:
-
-- `Mouse Bite Generator v1.0`
-- `Open Circuit Generator v1.0`
-- `Short Circuit Generator v1.0`
-- `Spur Generator v1.0`
-- `Spurious Copper Generator v1.0`
-- `Missing Hole Generator v1.0`
-
-Note:
+Important note:
 
 ```text
-The previous Missing Pad / Missing Hole plan has been refined to Missing Hole.
+The earlier Missing Pad / Missing Hole plan has been refined to Missing Hole.
 The current implementation focuses on missing-hole defects in silver pad / solder-joint regions.
 ```
 
 ---
 
-## 3. Project Structure
+## 4. Project Structure
 
 ```text
 PCB_Defect_Synthesis/
@@ -65,32 +96,49 @@ PCB_Defect_Synthesis/
 │   ├── 01.JPG
 │   ├── 04.JPG
 │   ├── 05.JPG
-│   └── ...
+│   ├── 06.JPG
+│   ├── 07.JPG
+│   ├── 08.JPG
+│   ├── 09.JPG
+│   ├── 10.JPG
+│   ├── 11.JPG
+│   └── 12.JPG
 ├── outputs/
 │   ├── topology/
-│   ├── mouse_bite/
-│   ├── open_circuit/
 │   ├── short_circuit/
+│   ├── open_circuit/
 │   ├── spur/
+│   ├── missing_hole/
+│   ├── mouse_bite/
 │   ├── spurious_copper/
-│   └── missing_hole/
+│   ├── normal/
+│   └── batch_logs/
+├── outputs_sd/
+│   └── short_circuit/
+├── dataset_yolo_crop_rule/
+├── dataset_yolo_crop_rule_with_normal/
+├── dataset_yolo_crop_rule_normal_spur_v2/
 ├── hsv_tracker.py
 ├── extract_topology.py
-├── generate_mouse_bite.py
-├── generate_open_circuit.py
 ├── generate_short_circuit.py
+├── generate_open_circuit.py
 ├── generate_spur.py
-├── generate_spurious_copper.py
 ├── generate_missing_hole.py
+├── generate_mouse_bite.py
+├── generate_spurious_copper.py
+├── generate_normal_crops.py
+├── run_batch_generation.py
+├── build_yolo_dataset.py
+├── sd_harmonize_short_circuit.py
 ├── README.md
 └── .gitignore
 ```
 
 ---
 
-## 4. Environment Setup
+## 5. Environment Setup for Synthetic Generation
 
-### 4.1 Create a Virtual Environment
+### 5.1 Create a Virtual Environment
 
 ```bash
 python -m venv .venv
@@ -102,14 +150,14 @@ Activate it on Windows:
 .venv\Scripts\activate
 ```
 
-### 4.2 Install Dependencies
+### 5.2 Install Dependencies
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install opencv-python numpy
+python -m pip install opencv-python numpy requests
 ```
 
-### 4.3 Test OpenCV Installation
+### 5.3 Test OpenCV Installation
 
 ```bash
 python -c "import cv2; print(cv2.__version__)"
@@ -119,12 +167,10 @@ If a version number is printed, OpenCV is installed correctly.
 
 ---
 
-## 5. Pipeline Overview
-
-The current pipeline contains three main stages:
+## 6. Pipeline Overview
 
 ```text
-Original PCB Image
+Original PCB Images
         ↓
 HSV Threshold Calibration
         ↓
@@ -132,14 +178,18 @@ Trace Topology Extraction
         ↓
 Rule-Based Defect Generation
         ↓
-Appearance Rendering
+Normal / Background Crop Generation
         ↓
-YOLO Label + Crop + Mask + Metadata Export
+YOLO Dataset Construction
+        ↓
+YOLO26 Training and Evaluation
+        ↓
+Optional SD / ComfyUI Appearance Harmonization
 ```
 
 ---
 
-## 6. Step 1: HSV Threshold Calibration
+## 7. HSV Threshold Calibration
 
 Script:
 
@@ -147,17 +197,13 @@ Script:
 hsv_tracker.py
 ```
 
-This script provides an interactive HSV threshold tracker for extracting dark PCB traces.
-
 Run:
 
 ```bash
 python hsv_tracker.py --image PCB_Dataset/04.JPG
 ```
 
-Adjust the HSV sliders until the PCB traces are properly isolated.
-
-After selecting suitable values, save the configuration to:
+Adjust the HSV sliders until PCB traces are properly isolated. Save the configuration to:
 
 ```text
 configs/hsv_trace_config.json
@@ -174,7 +220,7 @@ Example configuration:
 
 ---
 
-## 7. Step 2: PCB Trace Topology Extraction
+## 8. PCB Trace Topology Extraction
 
 Script:
 
@@ -182,9 +228,7 @@ Script:
 extract_topology.py
 ```
 
-This script extracts the trace mask and topology map from the original PCB image using the saved HSV configuration.
-
-Run:
+Single-image example:
 
 ```bash
 python extract_topology.py --image PCB_Dataset/04.JPG --config configs/hsv_trace_config.json --output_dir outputs/topology
@@ -209,158 +253,73 @@ Important files:
 
 | File | Description |
 |---|---|
-| `04_trace_mask.png` | Binary trace mask extracted from the original PCB |
-| `04_attack_candidate_mask.png` | Candidate region for defect injection |
-| `04_trace_overlay.png` | Debug overlay showing extracted trace regions |
-| `04_topology.png` | Binary topology image for visualization |
+| `*_trace_mask.png` | Binary trace mask extracted from the original PCB |
+| `*_attack_candidate_mask.png` | Candidate region for defect injection |
+| `*_trace_overlay.png` | Debug overlay showing extracted trace regions |
+| `*_topology.png` | Binary topology image for visualization |
 
 ---
 
-## 8. Step 3: Generate Mouse Bite Defects
+## 9. Multi-Image Batch Generation
 
 Script:
 
 ```text
-generate_mouse_bite.py
+run_batch_generation.py
 ```
 
-Mouse bite defects are generated by removing a small notch from the edge of an existing PCB trace. The removed area is rendered using local substrate color.
-
-### 8.1 Single Sample Generation
-
-```bash
-python generate_mouse_bite.py --image PCB_Dataset/04.JPG --seed 42 --min_radius 6 --max_radius 14 --max_attempts 3000
-```
-
-### 8.2 Batch Generation
-
-```bash
-python generate_mouse_bite.py --image PCB_Dataset/04.JPG --seed 42 --min_radius 6 --max_radius 14 --max_attempts 3000 --num_samples 20
-```
-
-### 8.3 Output Files
-
-Example outputs:
+The current dataset is generated from multiple PCB source images:
 
 ```text
-outputs/mouse_bite/
-├── 04_mouse_bite.png
-├── 04_mouse_bite_mask.png
-├── 04_mouse_bite_debug.png
-├── 04_mouse_bite.txt
-├── 04_mouse_bite_crop.png
-├── 04_mouse_bite_crop_mask.png
-├── 04_mouse_bite_crop_debug.png
-├── 04_mouse_bite_crop.txt
-└── 04_mouse_bite_metadata.json
+01.JPG, 04.JPG, 05.JPG, 06.JPG, 07.JPG,
+08.JPG, 09.JPG, 10.JPG, 11.JPG, 12.JPG
 ```
 
-For batch generation:
+### 9.1 Dry Run
+
+Use this first to check all child commands:
+
+```powershell
+python run_batch_generation.py --run_topology --num_samples 10 --dry_run
+```
+
+### 9.2 Full Batch Generation
+
+Run topology extraction and six defect generators:
+
+```powershell
+python run_batch_generation.py --run_topology --num_samples 10
+```
+
+### 9.3 Defect-Only Generation
+
+If topology files already exist:
+
+```powershell
+python run_batch_generation.py --num_samples 10
+```
+
+### 9.4 Generate Specific Defect Types
+
+Example:
+
+```powershell
+python run_batch_generation.py --defects short_circuit spur spurious_copper --num_samples 10
+```
+
+### 9.5 Batch Logs
+
+The script writes logs and summaries to:
 
 ```text
-04_mouse_bite_0001.png
-04_mouse_bite_0001_mask.png
-04_mouse_bite_0001_debug.png
-04_mouse_bite_0001.txt
-04_mouse_bite_0001_crop.png
-04_mouse_bite_0001_crop_debug.png
-04_mouse_bite_0001_metadata.json
-...
+outputs/batch_logs/
+├── batch_generation_<timestamp>.log
+└── batch_generation_<timestamp>_summary.json
 ```
-
-### 8.4 Recommended Parameters
-
-Current recommended parameters:
-
-```bash
---min_radius 6
---max_radius 14
---max_attempts 3000
-```
-
-These values produce visually reasonable mouse bite defects without frequently cutting through the entire trace.
 
 ---
 
-## 9. Step 4: Generate Open Circuit Defects
-
-Script:
-
-```text
-generate_open_circuit.py
-```
-
-Open circuit defects are generated by cutting through an existing PCB trace. The removed trace region is rendered using local substrate color.
-
-The generator includes:
-
-- trace centerline sampling
-- pad avoidance
-- straight trace filtering
-- local connectivity validation
-- YOLO label export
-- crop output
-- metadata output
-
-### 9.1 Single Sample Generation
-
-```bash
-python generate_open_circuit.py --image PCB_Dataset/04.JPG --seed 42 --pad_dilate 28 --min_gap_length 10 --max_gap_length 22 --min_elongation 4.0 --max_attempts 15000
-```
-
-### 9.2 Batch Generation
-
-```bash
-python generate_open_circuit.py --image PCB_Dataset/04.JPG --seed 42 --pad_dilate 28 --min_gap_length 10 --max_gap_length 22 --min_elongation 4.0 --max_attempts 15000 --num_samples 20
-```
-
-### 9.3 Output Files
-
-Example outputs:
-
-```text
-outputs/open_circuit/
-├── 04_open_circuit.png
-├── 04_open_circuit_mask.png
-├── 04_open_circuit_debug.png
-├── 04_open_circuit.txt
-├── 04_open_circuit_crop.png
-├── 04_open_circuit_crop_mask.png
-├── 04_open_circuit_crop_debug.png
-├── 04_open_circuit_crop.txt
-└── 04_open_circuit_metadata.json
-```
-
-For batch generation:
-
-```text
-04_open_circuit_0001.png
-04_open_circuit_0001_mask.png
-04_open_circuit_0001_debug.png
-04_open_circuit_0001.txt
-04_open_circuit_0001_crop.png
-04_open_circuit_0001_crop_debug.png
-04_open_circuit_0001_metadata.json
-...
-```
-
-### 9.4 Recommended Parameters
-
-Current recommended parameters:
-
-```bash
---pad_dilate 28
---min_gap_length 10
---max_gap_length 22
---min_elongation 4.0
---max_attempts 15000
-```
-
-These parameters help the generator select long, straight trace regions while avoiding pads, corners, junctions, and text regions.
-
----
-
-## 10. Step 5: Generate Short Circuit Defects
+## 10. Generate Short Circuit Defects
 
 Script:
 
@@ -368,79 +327,55 @@ Script:
 generate_short_circuit.py
 ```
 
-Short circuit defects are generated by adding a copper-colored bridge between nearby trace boundaries. The generated bridge uses local trace color statistics and is validated by distance, local trace width, PCA direction consistency, overlap ratio, and defect area constraints.
+Short circuit defects are generated by adding a copper-colored bridge between nearby trace boundaries.
 
-The generator includes:
-
-- trace-edge candidate sampling
-- adjacent-trace search along local normal direction
-- PCA-based parallel trace validation
-- solder pad / joint avoidance
-- bridge-width control from local trace width
-- YOLO label export
-- crop output
-- metadata output
-
-### 10.1 Single Sample Generation
-
-```bash
-python generate_short_circuit.py --image PCB_Dataset/04.JPG --seed 42 --min_gap_distance 4 --max_gap_distance 34 --bridge_width_multiplier 0.9 --min_bridge_width 4 --max_bridge_width 18 --max_attempts 20000
-```
-
-### 10.2 Batch Generation
+Recommended parameters:
 
 ```bash
 python generate_short_circuit.py --image PCB_Dataset/04.JPG --seed 42 --min_gap_distance 4 --max_gap_distance 34 --bridge_width_multiplier 0.9 --min_bridge_width 4 --max_bridge_width 18 --max_attempts 20000 --num_samples 20
 ```
 
-### 10.3 Output Files
-
-Example outputs:
+Current batch defaults in `run_batch_generation.py`:
 
 ```text
-outputs/short_circuit/
-├── 04_short_circuit.png
-├── 04_short_circuit_mask.png
-├── 04_short_circuit_debug.png
-├── 04_short_circuit.txt
-├── 04_short_circuit_crop.png
-├── 04_short_circuit_crop_mask.png
-├── 04_short_circuit_crop_debug.png
-├── 04_short_circuit_crop.txt
-└── 04_short_circuit_metadata.json
+--short_circuit_max_attempts 20000
+--short_circuit_pad_dilate 24
+--short_circuit_min_gap_distance 4
+--short_circuit_max_gap_distance 34
+--short_circuit_min_parallel_cos 0.85
 ```
-
-For batch generation:
-
-```text
-04_short_circuit_0001.png
-04_short_circuit_0001_mask.png
-04_short_circuit_0001_debug.png
-04_short_circuit_0001.txt
-04_short_circuit_0001_crop.png
-04_short_circuit_0001_crop_debug.png
-04_short_circuit_0001_metadata.json
-...
-```
-
-### 10.4 Recommended Parameters
-
-Current recommended parameters:
-
-```bash
---min_gap_distance 4
---max_gap_distance 34
---bridge_width_multiplier 0.9
---min_bridge_width 4
---max_bridge_width 18
---max_attempts 20000
-```
-
-These parameters generate visible conductive bridges while avoiding overly thick copper blobs or pad-near artifacts.
 
 ---
 
-## 11. Step 6: Generate Spur Defects
+## 11. Generate Open Circuit Defects
+
+Script:
+
+```text
+generate_open_circuit.py
+```
+
+Open circuit defects are generated by cutting through an existing PCB trace and rendering the removed area with local substrate color.
+
+Recommended parameters:
+
+```bash
+python generate_open_circuit.py --image PCB_Dataset/04.JPG --seed 42 --pad_dilate 28 --min_gap_length 10 --max_gap_length 22 --min_elongation 4.0 --max_attempts 15000 --num_samples 20
+```
+
+Current batch defaults:
+
+```text
+--open_circuit_pad_dilate 28
+--open_circuit_min_gap_length 10
+--open_circuit_max_gap_length 22
+--open_circuit_min_elongation 4.0
+--open_circuit_max_attempts 15000
+```
+
+---
+
+## 12. Generate Spur Defects
 
 Script:
 
@@ -448,164 +383,37 @@ Script:
 generate_spur.py
 ```
 
-Spur defects are generated by adding a short protruding copper branch from the edge of an existing trace. The branch direction is estimated from the local outward normal and includes a small angular jitter.
+Spur defects are generated by adding a protruding copper branch from the edge of an existing trace.
 
-The generator includes:
+### 12.1 Spur v2 Update
 
-- trace-edge sampling
-- local PCA trace validation
-- outward-normal estimation
-- spur length and width control
-- pad avoidance
-- short-circuit rejection through connectivity validation
-- YOLO label export
-- crop output
-- metadata output
+The spur generator has been updated after YOLO training showed severe spur false positives. The v2 logic makes spur defects more visually distinct from normal vias, dark holes, and small background texture.
 
-### 11.1 Single Sample Generation
+Key improvements:
 
-```bash
-python generate_spur.py --image PCB_Dataset/04.JPG --seed 42 --min_spur_length 8 --max_spur_length 22 --spur_width_multiplier 0.65 --min_spur_width 3 --max_spur_width 10 --angle_jitter_deg 25 --max_attempts 15000
-```
+- longer and clearer spur geometry
+- stronger minimum defect area
+- minimum bbox long-side constraint
+- mask elongation filtering
+- dark feature / via avoidance
+- stronger pad avoidance
+- stricter geometry validation
 
-### 11.2 Batch Generation
+### 12.2 Recommended Spur v2 Parameters
 
 ```bash
-python generate_spur.py --image PCB_Dataset/04.JPG --seed 42 --min_spur_length 8 --max_spur_length 22 --spur_width_multiplier 0.65 --min_spur_width 3 --max_spur_width 10 --angle_jitter_deg 25 --max_attempts 15000 --num_samples 20
+python generate_spur.py --image PCB_Dataset/04.JPG --seed 42 --min_spur_length 14 --max_spur_length 32 --spur_width_multiplier 0.65 --min_spur_width 4 --max_spur_width 10 --pad_dilate 30 --min_defect_area 45 --max_attempts 30000 --num_samples 20
 ```
 
-### 11.3 Output Files
+Current recommended batch command:
 
-Example outputs:
-
-```text
-outputs/spur/
-├── 04_spur.png
-├── 04_spur_mask.png
-├── 04_spur_debug.png
-├── 04_spur.txt
-├── 04_spur_crop.png
-├── 04_spur_crop_mask.png
-├── 04_spur_crop_debug.png
-├── 04_spur_crop.txt
-└── 04_spur_metadata.json
+```powershell
+python run_batch_generation.py --defects spur --num_samples 10 --spur_min_length 14 --spur_max_length 32 --spur_pad_dilate 30 --spur_max_attempts 30000
 ```
-
-For batch generation:
-
-```text
-04_spur_0001.png
-04_spur_0001_mask.png
-04_spur_0001_debug.png
-04_spur_0001.txt
-04_spur_0001_crop.png
-04_spur_0001_crop_debug.png
-04_spur_0001_metadata.json
-...
-```
-
-### 11.4 Recommended Parameters
-
-Current recommended parameters:
-
-```bash
---min_spur_length 8
---max_spur_length 22
---spur_width_multiplier 0.65
---min_spur_width 3
---max_spur_width 10
---angle_jitter_deg 25
---max_attempts 15000
-```
-
-These values produce small but visible protruding branches while reducing the chance of accidentally connecting to nearby traces.
 
 ---
 
-## 12. Step 7: Generate Spurious Copper Defects
-
-Script:
-
-```text
-generate_spurious_copper.py
-```
-
-Spurious copper defects are generated as detached extra copper residues near traces. The geometry can be rectangular, trapezoidal, elliptical, or mixed.
-
-The generator includes:
-
-- trace-edge anchor sampling
-- local tangent and outward-normal estimation
-- detached placement near trace boundaries
-- mixed shape generation
-- distance-to-trace validation
-- component-gain validation
-- YOLO label export
-- crop output
-- metadata output
-
-### 12.1 Single Sample Generation
-
-```bash
-python generate_spurious_copper.py --image PCB_Dataset/04.JPG --seed 42 --shape_mode mixed --min_major_length 10 --max_major_length 26 --min_minor_length 4 --max_minor_length 12 --min_detach_gap 3 --max_detach_gap 10 --max_attempts 20000
-```
-
-### 12.2 Batch Generation
-
-```bash
-python generate_spurious_copper.py --image PCB_Dataset/04.JPG --seed 42 --shape_mode mixed --min_major_length 10 --max_major_length 26 --min_minor_length 4 --max_minor_length 12 --min_detach_gap 3 --max_detach_gap 10 --max_attempts 20000 --num_samples 20
-```
-
-### 12.3 Output Files
-
-Example outputs:
-
-```text
-outputs/spurious_copper/
-├── 04_spurious_copper.png
-├── 04_spurious_copper_mask.png
-├── 04_spurious_copper_debug.png
-├── 04_spurious_copper.txt
-├── 04_spurious_copper_crop.png
-├── 04_spurious_copper_crop_mask.png
-├── 04_spurious_copper_crop_debug.png
-├── 04_spurious_copper_crop.txt
-└── 04_spurious_copper_metadata.json
-```
-
-For batch generation:
-
-```text
-04_spurious_copper_0001.png
-04_spurious_copper_0001_mask.png
-04_spurious_copper_0001_debug.png
-04_spurious_copper_0001.txt
-04_spurious_copper_0001_crop.png
-04_spurious_copper_0001_crop_debug.png
-04_spurious_copper_0001_metadata.json
-...
-```
-
-### 12.4 Recommended Parameters
-
-Current recommended parameters:
-
-```bash
---shape_mode mixed
---min_major_length 10
---max_major_length 26
---min_minor_length 4
---max_minor_length 12
---min_detach_gap 3
---max_detach_gap 10
---max_attempts 20000
-```
-
-These values generate small detached copper residues near traces while avoiding direct overlap with existing trace and pad regions.
-
----
-
-## 13. Step 8: Generate Missing Hole Defects
+## 13. Generate Missing Hole Defects
 
 Script:
 
@@ -613,77 +421,133 @@ Script:
 generate_missing_hole.py
 ```
 
-Missing hole defects are generated by replacing the center area of a silver pad / solder joint with a local trace-like or green board-region color. The intended visual style is that most silver pads remain normal, while selected abnormal pads show a visible green-colored center region.
+Missing hole defects are generated by replacing the center area of a silver pad / solder joint with a local trace-like or green board-region color.
 
-The generator includes:
-
-- silver pad / solder-joint detection
-- connected-component pad filtering
-- center-safe hole placement
-- circle / ellipse hole geometry
-- local non-silver / green-region color sampling
-- YOLO label export
-- crop output
-- metadata output
-
-### 13.1 Single Sample Generation
-
-```bash
-python generate_missing_hole.py --image PCB_Dataset/04.JPG --seed 42 --min_hole_radius 8 --max_hole_radius 18 --min_hole_radius_ratio 0.5 --max_hole_radius_ratio 0.7
-```
-
-### 13.2 Batch Generation
+Recommended parameters:
 
 ```bash
 python generate_missing_hole.py --image PCB_Dataset/04.JPG --seed 42 --num_samples 20 --min_hole_radius 8 --max_hole_radius 18 --min_hole_radius_ratio 0.5 --max_hole_radius_ratio 0.7
-```
-
-### 13.3 Output Files
-
-Example outputs:
-
-```text
-outputs/missing_hole/
-├── 04_missing_hole.png
-├── 04_missing_hole_mask.png
-├── 04_missing_hole_debug.png
-├── 04_missing_hole.txt
-├── 04_missing_hole_crop.png
-├── 04_missing_hole_crop_mask.png
-├── 04_missing_hole_crop_debug.png
-├── 04_missing_hole_crop.txt
-└── 04_missing_hole_metadata.json
-```
-
-For batch generation:
-
-```text
-04_missing_hole_0001.png
-04_missing_hole_0001_mask.png
-04_missing_hole_0001_debug.png
-04_missing_hole_0001.txt
-04_missing_hole_0001_crop.png
-04_missing_hole_0001_crop_debug.png
-04_missing_hole_0001_metadata.json
-...
-```
-
-### 13.4 Recommended Parameters
-
-Current recommended parameters:
-
-```bash
---min_hole_radius 8
---max_hole_radius 18
---min_hole_radius_ratio 0.5
---max_hole_radius_ratio 0.7
 ```
 
 These parameters generate a visually clear missing-hole region in the center of silver pads without making the defect unrealistically cover the whole pad.
 
 ---
 
-## 14. YOLO Label Format
+## 14. Generate Mouse Bite Defects
+
+Script:
+
+```text
+generate_mouse_bite.py
+```
+
+Mouse bite defects are generated by removing a small notch from the edge of an existing PCB trace.
+
+Recommended parameters:
+
+```bash
+python generate_mouse_bite.py --image PCB_Dataset/04.JPG --seed 42 --min_radius 6 --max_radius 14 --max_attempts 3000 --num_samples 20
+```
+
+Current issue:
+
+```text
+Mouse bite is currently the weakest class in the best YOLO26s crop-level experiment.
+Further optimization may require larger or more visually distinct bite geometry.
+```
+
+---
+
+## 15. Generate Spurious Copper Defects
+
+Script:
+
+```text
+generate_spurious_copper.py
+```
+
+Spurious copper defects are generated as detached extra copper residues near traces.
+
+After early YOLO experiments, the original mixed and small-shape settings caused many false positives. The current recommended direction is to make spurious copper more stable and more visually distinguishable from small dark holes or normal background texture.
+
+Recommended refined parameters:
+
+```bash
+python generate_spurious_copper.py --image PCB_Dataset/04.JPG --seed 42 --shape_mode ellipse --min_major_length 16 --max_major_length 34 --min_minor_length 8 --max_minor_length 16 --min_detach_gap 5 --max_detach_gap 14 --max_attempts 20000 --num_samples 20
+```
+
+Recommended batch command:
+
+```powershell
+python run_batch_generation.py --defects spurious_copper --num_samples 10 --spurious_copper_shape_mode ellipse --spurious_copper_min_major_length 16 --spurious_copper_max_major_length 34 --spurious_copper_min_minor_length 8 --spurious_copper_max_minor_length 16 --spurious_copper_min_detach_gap 5 --spurious_copper_max_detach_gap 14 --spurious_copper_min_defect_area 50 --spurious_copper_min_bbox_width 8 --spurious_copper_min_bbox_height 8
+```
+
+---
+
+## 16. Generate Normal / Background Crops
+
+Script:
+
+```text
+generate_normal_crops.py
+```
+
+Normal/background crops are used as negative samples to reduce YOLO false positives. They contain no defect annotations and therefore use empty `.txt` label files.
+
+### 16.1 Generate Normal Crops
+
+```powershell
+python generate_normal_crops.py --dataset_dir PCB_Dataset --topology_dir outputs/topology --output_dir outputs/normal --num_crops_per_image 20 --crop_size 128 --seed 42
+```
+
+To overwrite existing normal crops:
+
+```powershell
+python generate_normal_crops.py --dataset_dir PCB_Dataset --topology_dir outputs/topology --output_dir outputs/normal --num_crops_per_image 20 --crop_size 128 --seed 42 --overwrite
+```
+
+### 16.2 Output Files
+
+```text
+outputs/normal/
+├── 01_normal_0001_crop.png
+├── 01_normal_0001_crop.txt
+├── 01_normal_0001_crop_debug.png
+├── 01_normal_0001_crop_metadata.json
+└── normal_crops_summary.json
+```
+
+Important:
+
+```text
+The normal crop label file is intentionally empty.
+Do not add a background class to data.yaml.
+```
+
+YOLO uses empty label files as background / negative samples.
+
+---
+
+## 17. Output File Types
+
+Each defect generator produces several types of outputs:
+
+| Output Type | Example | Used for Training? | Description |
+|---|---|---:|---|
+| Synthetic image | `04_mouse_bite.png` | Yes | Full PCB image with synthetic defect |
+| Defect mask | `04_mouse_bite_mask.png` | Optional | Binary defect mask |
+| YOLO label | `04_mouse_bite.txt` | Yes | YOLO-format annotation |
+| Debug image | `04_mouse_bite_debug.png` | No | Synthetic image with red mask and green bbox |
+| Crop image | `04_mouse_bite_crop.png` | Yes | Defect-centered local patch |
+| Crop label | `04_mouse_bite_crop.txt` | Yes | YOLO label for crop image |
+| Crop debug | `04_mouse_bite_crop_debug.png` | No | Crop image with mask and bbox |
+| Metadata | `04_mouse_bite_metadata.json` | No | Generation parameters and sample information |
+
+Debug images should not be used for training.
+
+---
+
+## 18. YOLO Label Format
 
 Each generated defect automatically produces a YOLO-format annotation:
 
@@ -709,161 +573,329 @@ names:
   5: spurious_copper
 ```
 
-Currently implemented:
+For normal/background crops, the `.txt` label file is empty.
+
+---
+
+## 19. Build YOLO Dataset
+
+Script:
 
 ```text
-0: short_circuit
-1: open_circuit
-2: spur
-3: missing_hole
-4: mouse_bite
-5: spurious_copper
+build_yolo_dataset.py
+```
+
+This script builds a YOLO-format dataset from generated crop or full-image samples.
+
+### 19.1 Output Structure
+
+```text
+dataset_yolo_crop_rule_normal_spur_v2/
+├── images/
+│   ├── train/
+│   ├── val/
+│   └── test/
+├── labels/
+│   ├── train/
+│   ├── val/
+│   └── test/
+├── data.yaml
+└── build_summary.json
+```
+
+### 19.2 Build Crop Dataset with Normal Crops
+
+```powershell
+python build_yolo_dataset.py --image_mode crop --source_dirs outputs/short_circuit outputs/open_circuit outputs/spur outputs/missing_hole outputs/mouse_bite outputs/spurious_copper outputs/normal --output_dir dataset_yolo_crop_rule_normal_spur_v2 --allow_empty_labels --overwrite
+```
+
+### 19.3 Split Strategy
+
+The default split mode is group-based:
+
+```text
+--split_mode group
+```
+
+This means samples are split by source image ID, such as `01`, `04`, `05`, etc. This prevents samples generated from the same original PCB image from being placed in both train and validation/test splits.
+
+Manual split example:
+
+```powershell
+python build_yolo_dataset.py --image_mode crop --source_dirs outputs/short_circuit outputs/open_circuit outputs/spur outputs/missing_hole outputs/mouse_bite outputs/spurious_copper outputs/normal --output_dir dataset_yolo_crop_rule_normal_spur_v2 --split_mode manual --train_sources 01 04 05 06 07 08 --val_sources 09 10 --test_sources 11 12 --allow_empty_labels --overwrite
 ```
 
 ---
 
-## 15. Output File Types
+## 20. YOLO26 Environment Setup
 
-Each generator produces several types of outputs:
+Use a separate environment for YOLO26 training.
 
-| Output Type | Example | Used for Training? | Description |
-|---|---|---:|---|
-| Synthetic image | `04_mouse_bite.png` | Yes | Full PCB image with synthetic defect |
-| Defect mask | `04_mouse_bite_mask.png` | Optional | Binary defect mask |
-| YOLO label | `04_mouse_bite.txt` | Yes | YOLO-format annotation |
-| Debug image | `04_mouse_bite_debug.png` | No | Synthetic image with red mask and green bbox |
-| Crop image | `04_mouse_bite_crop.png` | Yes | Defect-centered local patch |
-| Crop label | `04_mouse_bite_crop.txt` | Yes | YOLO label for crop image |
-| Crop debug | `04_mouse_bite_crop_debug.png` | No | Crop image with mask and bbox |
-| Metadata | `04_mouse_bite_metadata.json` | No | Generation parameters and sample information |
-
-Important:
-
-```text
-Debug images should not be used for training.
+```powershell
+cd D:\PolyU\PCB_Defect_Synthesis
+conda create -n yolo26 python=3.11 -y
+conda activate yolo26
 ```
 
-Only use clean synthetic images and crop images for model training.
+Install PyTorch and Ultralytics:
+
+```powershell
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install -U ultralytics
+```
+
+Check CUDA:
+
+```powershell
+python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+```
 
 ---
 
-## 16. Metadata
+## 21. YOLO26 Training
 
-Each generated sample includes a metadata JSON file.
+### 21.1 Recommended Current Model
 
-Metadata records:
+YOLO26s is currently recommended for subsequent horizontal experiments.
 
-- source image path
-- defect type
-- class ID
-- sample index
-- defect center
-- geometry parameters
-- defect area
-- bounding box size
-- substrate / trace / fill color
-- YOLO label
-- crop information
-- generation parameters
-- output paths
+Reason:
 
-This makes the synthetic dataset reproducible, traceable, and easier to analyze.
+```text
+YOLO26n showed insufficient stability on fine-grained classes such as spur and spurious_copper.
+YOLO26s significantly improved crop-level detection performance.
+```
 
----
+### 21.2 Recommended Training Command
 
-## 17. Suggested Experimental Design
+```powershell
+yolo detect train model=yolo26s.pt data=dataset_yolo_crop_rule_normal_spur_v2/data.yaml imgsz=320 epochs=30 batch=16 device=0 project=runs_pcb name=yolo26s_crop_rule_normal_spur_v2_img320
+```
 
-The generated data can support the following YOLO training configurations:
+### 21.3 Debug Training
 
-| Experiment | Training Data |
-|---|---|
-| Real Only | Real PCB defect data only |
-| Synthetic Only | Generated defect data only |
-| Real + Synthetic | Real data augmented with generated defects |
-| Rule-only Synthetic | Rule-based rendering without SD harmonization |
-| Rule + SD Harmonized | Rule-based geometry with SD/ComfyUI appearance refinement |
-
-Evaluation metrics:
-
-- mAP
-- Precision
-- Recall
-- F1-score
-- OOD robustness
-- defect-wise performance
+```powershell
+yolo detect train model=yolo26s.pt data=dataset_yolo_crop_rule_normal_spur_v2/data.yaml imgsz=320 epochs=1 batch=8 device=0 project=runs_pcb name=debug_1epoch
+```
 
 ---
 
-## 18. Future Work
+## 22. Current YOLO26 Experiment Summary
 
-Remaining work:
+### 22.1 YOLO26n Baseline
 
-1. Build a full YOLO dataset export tool.
-2. Generate a balanced multi-class synthetic dataset across all six defect types.
-3. Train and evaluate YOLO on real-only, synthetic-only, and mixed datasets.
-4. Analyze per-class performance, especially long-tail classes.
-5. Integrate Controlled SD / ComfyUI for low-strength appearance harmonization if rule-based rendering is not visually sufficient.
-6. Compare rule-only synthetic data with rule + SD harmonized data.
+Earlier YOLO26n experiments showed that most classes were learnable, but spur and spurious copper produced severe false positives.
+
+Example issue:
+
+```text
+spurious_copper was initially confused with normal small holes and dark PCB texture.
+After parameter refinement, the dominant false-positive issue moved to spur.
+```
+
+### 22.2 Normal Crops
+
+Adding normal/background crops reduced some false positives, but did not fully solve spur misclassification when spur v1 geometry was too similar to normal small PCB structures.
+
+### 22.3 Spur v2
+
+After updating `generate_spur.py`, spur became more visually distinct. Combined with normal crops and YOLO26s, crop-level performance improved substantially.
+
+### 22.4 YOLO26s Result Snapshot
+
+Best observed configuration:
+
+```text
+Dataset: dataset_yolo_crop_rule_normal_spur_v2
+Model: YOLO26s
+imgsz: 320
+epochs: 30
+```
+
+Observed validation summary:
+
+```text
+all:
+P        ≈ 0.944
+R        ≈ 0.930
+mAP50    ≈ 0.952
+mAP50-95 ≈ 0.774
+
+short_circuit:
+P        ≈ 0.980
+R        ≈ 1.000
+mAP50    ≈ 0.995
+
+open_circuit:
+P        ≈ 1.000
+R        ≈ 0.924
+mAP50    ≈ 0.995
+
+spur:
+P        ≈ 1.000
+R        ≈ 0.958
+mAP50    ≈ 0.995
+
+missing_hole:
+P        ≈ 0.970
+R        ≈ 1.000
+mAP50    ≈ 0.995
+
+mouse_bite:
+P        ≈ 0.832
+R        ≈ 0.700
+mAP50    ≈ 0.738
+
+spurious_copper:
+P        ≈ 0.882
+R        ≈ 1.000
+mAP50    ≈ 0.995
+```
+
+Current weakest class:
+
+```text
+mouse_bite
+```
+
+The next defect-generation improvement should focus on `generate_mouse_bite.py`.
 
 ---
 
-## 19. Notes on Stable Diffusion / ComfyUI
+## 23. Stable Diffusion / ComfyUI Appearance Harmonization
 
-Stable Diffusion is not used as a free-form defect generator in the current pipeline.
+Stable Diffusion is not used as a free-form defect generator.
 
-Instead, the long-term role of SD / ComfyUI is:
+Its intended role is:
 
 ```text
 Appearance Harmonizer
 ```
 
-The defect geometry is generated by rule-based topology operations. SD can later be used only for subtle local appearance blending under strict constraints, such as:
+The defect geometry is still generated by rule-based topology operations. SD/ComfyUI may be used only for subtle local blending under strict constraints:
 
 - low denoise strength
 - defect-local mask
-- ControlNet / Canny guidance
-- no new metallic artifacts
 - no topology distortion
+- no new metallic artifacts
+- no white blob generation
+- no hallucinated components
 
-This design preserves the controllability of the generated defect while still allowing generative AI to improve visual realism.
+### 23.1 Short Circuit SD Harmonization
 
----
+Script:
 
-## 20. Typical Workflow
+```text
+sd_harmonize_short_circuit.py
+```
 
-A typical workflow for one PCB image is:
+The current short-circuit SD harmonization experiment showed limited visual benefit. Therefore, SD outputs are kept as optional comparison data rather than the main training source.
 
-```bash
-# 1. Calibrate HSV threshold
-python hsv_tracker.py --image PCB_Dataset/04.JPG
+Example command:
 
-# 2. Extract trace topology
-python extract_topology.py --image PCB_Dataset/04.JPG --config configs/hsv_trace_config.json --output_dir outputs/topology
-
-# 3. Generate mouse bite samples
-python generate_mouse_bite.py --image PCB_Dataset/04.JPG --seed 42 --min_radius 6 --max_radius 14 --max_attempts 3000 --num_samples 20
-
-# 4. Generate open circuit samples
-python generate_open_circuit.py --image PCB_Dataset/04.JPG --seed 42 --pad_dilate 28 --min_gap_length 10 --max_gap_length 22 --min_elongation 4.0 --max_attempts 15000 --num_samples 20
-
-# 5. Generate short circuit samples
-python generate_short_circuit.py --image PCB_Dataset/04.JPG --seed 42 --min_gap_distance 4 --max_gap_distance 34 --bridge_width_multiplier 0.9 --min_bridge_width 4 --max_bridge_width 18 --max_attempts 20000 --num_samples 20
-
-# 6. Generate spur samples
-python generate_spur.py --image PCB_Dataset/04.JPG --seed 42 --min_spur_length 8 --max_spur_length 22 --spur_width_multiplier 0.65 --min_spur_width 3 --max_spur_width 10 --angle_jitter_deg 25 --max_attempts 15000 --num_samples 20
-
-# 7. Generate spurious copper samples
-python generate_spurious_copper.py --image PCB_Dataset/04.JPG --seed 42 --shape_mode mixed --min_major_length 10 --max_major_length 26 --min_minor_length 4 --max_minor_length 12 --min_detach_gap 3 --max_detach_gap 10 --max_attempts 20000 --num_samples 20
-
-# 8. Generate missing hole samples
-python generate_missing_hole.py --image PCB_Dataset/04.JPG --seed 42 --num_samples 20 --min_hole_radius 8 --max_hole_radius 18 --min_hole_radius_ratio 0.5 --max_hole_radius_ratio 0.7
+```powershell
+python sd_harmonize_short_circuit.py --input_dir outputs/short_circuit --output_dir outputs_sd/short_circuit --workflow_api_json workflows/short_circuit_workflow_api.json --node_ids_json workflows/short_circuit_node_ids.json --comfy_url http://127.0.0.1:8000 --mask_mode soft_from_crop --steps 16 --cfg 2.0 --sampler_name euler --scheduler simple --denoise 0.05
 ```
 
 ---
 
-## 21. Current Progress
+## 24. Suggested Experimental Design
 
-Current completed modules:
+### 24.1 Model Selection
+
+Fixed dataset:
+
+```text
+dataset_yolo_crop_rule_normal_spur_v2
+```
+
+Compare:
+
+```text
+YOLO26n vs YOLO26s
+```
+
+Conclusion:
+
+```text
+YOLO26s is selected as the default detector for subsequent experiments.
+```
+
+### 24.2 Data Pipeline Ablation
+
+Fixed model:
+
+```text
+YOLO26s
+```
+
+Suggested comparisons:
+
+| Experiment | Data |
+|---|---|
+| Crop rule-only | Six synthetic defect classes, no normal crops |
+| Crop rule + normal | Six classes + normal/background crops |
+| Crop rule + normal + spur_v2 | Current best crop-level configuration |
+| Crop rule + SD short circuit | Optional SD harmonized short-circuit comparison |
+
+### 24.3 Data Scale Experiment
+
+Fixed model:
+
+```text
+YOLO26s
+```
+
+Compare different numbers of generated samples:
+
+```text
+10 samples per image per class
+20 samples per image per class
+30 samples per image per class
+```
+
+### 24.4 Crop vs Full Image
+
+Fixed model:
+
+```text
+YOLO26s
+```
+
+Compare:
+
+```text
+crop-level dataset
+full-image dataset
+```
+
+This is important because crop-level training validates local defect learnability, while full-image training is closer to real inspection deployment.
+
+---
+
+## 25. Typical Current Workflow
+
+```powershell
+# 1. Calibrate HSV threshold
+python hsv_tracker.py --image PCB_Dataset/04.JPG
+
+# 2. Batch topology + defect generation
+python run_batch_generation.py --run_topology --num_samples 10
+
+# 3. Generate normal/background crops
+python generate_normal_crops.py --dataset_dir PCB_Dataset --topology_dir outputs/topology --output_dir outputs/normal --num_crops_per_image 20 --crop_size 128 --seed 42 --overwrite
+
+# 4. Build YOLO crop dataset
+python build_yolo_dataset.py --image_mode crop --source_dirs outputs/short_circuit outputs/open_circuit outputs/spur outputs/missing_hole outputs/mouse_bite outputs/spurious_copper outputs/normal --output_dir dataset_yolo_crop_rule_normal_spur_v2 --allow_empty_labels --overwrite
+
+# 5. Train YOLO26s
+yolo detect train model=yolo26s.pt data=dataset_yolo_crop_rule_normal_spur_v2/data.yaml imgsz=320 epochs=30 batch=16 device=0 project=runs_pcb name=yolo26s_crop_rule_normal_spur_v2_img320
+```
+
+---
+
+## 26. Current Progress Checklist
+
+Completed:
 
 - [x] HSV threshold calibration
 - [x] PCB trace topology extraction
@@ -871,17 +903,39 @@ Current completed modules:
 - [x] Open Circuit generation
 - [x] Short Circuit generation
 - [x] Spur generation
+- [x] Spur v2 update
 - [x] Spurious Copper generation
+- [x] Spurious Copper parameter refinement
 - [x] Missing Hole generation
+- [x] Multi-image batch generation
 - [x] YOLO label export
 - [x] Defect mask export
 - [x] Defect-centered crop export
 - [x] Debug visualization export
 - [x] Metadata export
+- [x] Normal/background crop generation
+- [x] YOLO dataset construction
+- [x] YOLO26n crop-level training
+- [x] YOLO26s crop-level training
+- [x] YOLO26s selected for subsequent horizontal comparison
 
 In progress / next steps:
 
-- [ ] Full YOLO dataset export tool
-- [ ] Balanced synthetic dataset generation
-- [ ] Controlled SD / ComfyUI harmonization
-- [ ] YOLO training and robustness evaluation
+- [ ] Optimize mouse_bite generation
+- [ ] Build full-image YOLO dataset
+- [ ] Compare crop-level vs full-image training
+- [ ] Run data scale experiments
+- [ ] Optionally compare rule-only vs rule + SD harmonized data
+- [ ] Prepare final experimental tables and qualitative prediction visualizations
+
+---
+
+## 27. Notes
+
+- Do not train on debug images.
+- Do not create a background class for YOLO.
+- Normal/background crops should use empty `.txt` label files.
+- Use `--allow_empty_labels` when building datasets that include normal crops.
+- For current crop-level experiments, use `imgsz=320`.
+- Use YOLO26s as the default model for horizontal comparisons.
+- YOLO26n can be retained as a lightweight baseline in the model selection experiment.

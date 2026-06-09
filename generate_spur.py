@@ -1,4 +1,3 @@
-
 import cv2
 import numpy as np
 import os
@@ -27,17 +26,17 @@ def parse_args():
     parser.add_argument("--class_id", type=int, default=2,
                         help="YOLO class id for spur. Adjust according to your class mapping.")
 
-    parser.add_argument("--min_spur_length", type=int, default=8,
-                        help="Minimum spur length in pixels.")
-    parser.add_argument("--max_spur_length", type=int, default=22,
+    parser.add_argument("--min_spur_length", type=int, default=14,
+                        help="Minimum spur length in pixels. Larger default makes spur more distinguishable from small vias/noise.")
+    parser.add_argument("--max_spur_length", type=int, default=32,
                         help="Maximum spur length in pixels.")
     parser.add_argument("--spur_width_multiplier", type=float, default=0.65,
                         help="Spur width multiplier based on local trace width.")
-    parser.add_argument("--min_spur_width", type=int, default=3,
+    parser.add_argument("--min_spur_width", type=int, default=4,
                         help="Minimum spur width in pixels.")
     parser.add_argument("--max_spur_width", type=int, default=10,
                         help="Maximum spur width in pixels.")
-    parser.add_argument("--angle_jitter_deg", type=float, default=25.0,
+    parser.add_argument("--angle_jitter_deg", type=float, default=18.0,
                         help="Random angular jitter from outward normal, in degrees.")
 
     parser.add_argument("--max_trace_half_width", type=float, default=12.0,
@@ -53,20 +52,28 @@ def parse_args():
                         help="Minimum grayscale value for detecting bright solder pads / joints.")
     parser.add_argument("--pad_s_max", type=int, default=90,
                         help="Maximum HSV saturation for detecting silver/bright solder pads.")
-    parser.add_argument("--pad_dilate", type=int, default=22,
+    parser.add_argument("--pad_dilate", type=int, default=30,
                         help="Dilation radius for pad avoidance mask, in pixels.")
 
     parser.add_argument("--pca_radius", type=int, default=22,
                         help="Local window radius for PCA-based trace validation.")
-    parser.add_argument("--min_elongation", type=float, default=2.5,
+    parser.add_argument("--min_elongation", type=float, default=3.0,
                         help="Minimum PCA elongation ratio for accepting clean trace edges.")
 
-    parser.add_argument("--min_defect_area", type=int, default=12,
+    parser.add_argument("--min_defect_area", type=int, default=45,
                         help="Minimum added spur area in pixels.")
     parser.add_argument("--min_bbox_width", type=int, default=4,
                         help="Minimum defect bbox width in pixels.")
     parser.add_argument("--min_bbox_height", type=int, default=4,
                         help="Minimum defect bbox height in pixels.")
+    parser.add_argument("--min_bbox_long_side", type=int, default=14,
+                        help="Minimum long side of defect bbox in pixels. Rejects tiny spur-like noise.")
+    parser.add_argument("--min_mask_elongation", type=float, default=2.0,
+                        help="Minimum PCA elongation ratio of the final defect mask.")
+    parser.add_argument("--dark_v_max", type=int, default=70,
+                        help="Maximum grayscale value for detecting dark holes/vias to avoid.")
+    parser.add_argument("--dark_dilate", type=int, default=10,
+                        help="Dilation radius for avoiding dark holes/vias and via arrays.")
     parser.add_argument("--max_existing_trace_overlap_ratio", type=float, default=0.45,
                         help="Maximum allowed ratio of spur geometry overlapping existing trace.")
 
@@ -157,6 +164,81 @@ def create_pad_avoid_mask(image_bgr: np.ndarray, v_min: int = 120, s_max: int = 
         pad_mask = cv2.dilate(pad_mask, kernel, iterations=1)
 
     return pad_mask
+
+
+def create_dark_feature_avoid_mask(image_bgr: np.ndarray, trace_mask: np.ndarray,
+                                   v_max: int = 70, dilate_radius: int = 10) -> np.ndarray:
+    """
+    Detect and avoid small dark holes / vias / via arrays.
+
+    Spur false positives were mainly triggered by small dark dots and via-like
+    structures. This mask is only used as an exclusion area for sampling spur
+    roots and generated spur bodies; it is not a label mask.
+    """
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+
+    dark = np.zeros_like(gray, dtype=np.uint8)
+    dark[gray <= int(v_max)] = 255
+
+    # Keep dark features near board background, but avoid classifying the trace
+    # itself as a dark feature.
+    trace_dilated = cv2.dilate(
+        trace_mask,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)),
+        iterations=1
+    )
+    dark[trace_dilated > 0] = 0
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(dark, connectivity=8)
+    filtered = np.zeros_like(dark)
+
+    for label_id in range(1, num_labels):
+        area = int(stats[label_id, cv2.CC_STAT_AREA])
+        bw = int(stats[label_id, cv2.CC_STAT_WIDTH])
+        bh = int(stats[label_id, cv2.CC_STAT_HEIGHT])
+
+        # Keep small-to-medium dot/hole structures. Very large dark regions are
+        # usually shadows or background and are less useful for exclusion.
+        if 2 <= area <= 350 and bw <= 35 and bh <= 35:
+            filtered[labels == label_id] = 255
+
+    if dilate_radius > 0:
+        k = int(dilate_radius) * 2 + 1
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+        filtered = cv2.dilate(filtered, kernel, iterations=1)
+
+    return filtered
+
+
+def compute_mask_shape_metrics(binary_mask: np.ndarray) -> Optional[Dict[str, float]]:
+    ys, xs = np.where(binary_mask > 0)
+    if len(xs) < 3:
+        return None
+
+    bbox_width = float(xs.max() - xs.min() + 1)
+    bbox_height = float(ys.max() - ys.min() + 1)
+    bbox_long_side = max(bbox_width, bbox_height)
+    bbox_short_side = max(1.0, min(bbox_width, bbox_height))
+
+    pts = np.column_stack([xs.astype(np.float32), ys.astype(np.float32)])
+    pts_centered = pts - np.mean(pts, axis=0, keepdims=True)
+    cov = np.cov(pts_centered, rowvar=False)
+    if not np.all(np.isfinite(cov)):
+        mask_elongation = 1.0
+    else:
+        eigenvalues, _ = np.linalg.eigh(cov)
+        eigenvalues = np.sort(eigenvalues)[::-1]
+        mask_elongation = float(eigenvalues[0] / max(eigenvalues[1], 1e-6))
+
+    return {
+        "bbox_width": bbox_width,
+        "bbox_height": bbox_height,
+        "bbox_long_side": bbox_long_side,
+        "bbox_short_side": bbox_short_side,
+        "bbox_aspect": bbox_long_side / bbox_short_side,
+        "mask_elongation": mask_elongation,
+        "area": float(len(xs)),
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -259,11 +341,16 @@ def make_spur_mask(shape: Tuple[int, int], start: Tuple[int, int],
     return mask
 
 
-def is_valid_spur(trace_mask: np.ndarray, spur_full_mask: np.ndarray, pad_avoid_mask: np.ndarray,
-                  start: Tuple[int, int], min_defect_area: int = 12,
+def is_valid_spur(trace_mask: np.ndarray, spur_full_mask: np.ndarray, avoid_mask: np.ndarray,
+                  start: Tuple[int, int], end: Tuple[int, int],
+                  min_defect_area: int = 45,
                   min_bbox_width: int = 4, min_bbox_height: int = 4,
+                  min_bbox_long_side: int = 14,
+                  min_mask_elongation: float = 2.0,
                   max_existing_trace_overlap_ratio: float = 0.45) -> bool:
-    if np.any((spur_full_mask > 0) & (pad_avoid_mask > 0)):
+    # Reject if the proposed spur touches solder pads, vias, dark holes, or
+    # their dilated neighborhoods.
+    if np.any((spur_full_mask > 0) & (avoid_mask > 0)):
         return False
 
     defect_mask = spur_full_mask.copy()
@@ -277,9 +364,18 @@ def is_valid_spur(trace_mask: np.ndarray, spur_full_mask: np.ndarray, pad_avoid_
     if len(xs) == 0 or len(ys) == 0:
         return False
 
-    bbox_width = int(xs.max() - xs.min() + 1)
-    bbox_height = int(ys.max() - ys.min() + 1)
+    metrics = compute_mask_shape_metrics(defect_mask)
+    if metrics is None:
+        return False
+
+    bbox_width = int(metrics["bbox_width"])
+    bbox_height = int(metrics["bbox_height"])
+
     if bbox_width < min_bbox_width or bbox_height < min_bbox_height:
+        return False
+    if metrics["bbox_long_side"] < min_bbox_long_side:
+        return False
+    if metrics["mask_elongation"] < min_mask_elongation:
         return False
 
     full_area = int(np.count_nonzero(spur_full_mask))
@@ -289,14 +385,26 @@ def is_valid_spur(trace_mask: np.ndarray, spur_full_mask: np.ndarray, pad_avoid_
         return False
 
     sx, sy = start
-    local_radius = 3
+    ex, ey = end
     h, w = trace_mask.shape[:2]
+
+    # Root must touch existing trace.
+    local_radius = 3
     x1 = max(0, sx - local_radius)
     x2 = min(w, sx + local_radius + 1)
     y1 = max(0, sy - local_radius)
     y2 = min(h, sy + local_radius + 1)
-
     if np.count_nonzero(trace_mask[y1:y2, x1:x2]) == 0:
+        return False
+
+    # Tip should be outside existing trace. This prevents short-circuit-like
+    # bridges and discourages drawing along the trace body.
+    tip_radius = 3
+    x1 = max(0, ex - tip_radius)
+    x2 = min(w, ex + tip_radius + 1)
+    y1 = max(0, ey - tip_radius)
+    y2 = min(h, ey + tip_radius + 1)
+    if np.count_nonzero(trace_mask[y1:y2, x1:x2]) > 0:
         return False
 
     # If adding the spur merges components, it is closer to short circuit.
@@ -308,7 +416,6 @@ def is_valid_spur(trace_mask: np.ndarray, spur_full_mask: np.ndarray, pad_avoid_
         return False
 
     return True
-
 
 def sample_valid_spur(
     image_bgr: np.ndarray,
@@ -332,7 +439,11 @@ def sample_valid_spur(
     min_defect_area: int,
     min_bbox_width: int,
     min_bbox_height: int,
-    max_existing_trace_overlap_ratio: float
+    min_bbox_long_side: int,
+    min_mask_elongation: float,
+    max_existing_trace_overlap_ratio: float,
+    dark_v_max: int,
+    dark_dilate: int
 ) -> Tuple[np.ndarray, Tuple[int, int], Dict[str, Any]]:
     filtered_candidates = keep_large_components(attack_candidate_mask, min_area=component_min_area)
     filtered_candidates = remove_border_area(filtered_candidates, margin=border_margin)
@@ -343,12 +454,20 @@ def sample_valid_spur(
         s_max=pad_s_max,
         dilate_radius=pad_dilate
     )
+    dark_avoid_mask = create_dark_feature_avoid_mask(
+        image_bgr=image_bgr,
+        trace_mask=trace_mask,
+        v_max=dark_v_max,
+        dilate_radius=dark_dilate
+    )
+    avoid_mask = np.zeros_like(trace_mask)
+    avoid_mask[(pad_avoid_mask > 0) | (dark_avoid_mask > 0)] = 255
 
     distance_map = cv2.distanceTransform(trace_mask, cv2.DIST_L2, 5)
 
     eligible = np.zeros_like(trace_mask)
     eligible[(filtered_candidates > 0) & (distance_map <= max_trace_half_width)] = 255
-    eligible[pad_avoid_mask > 0] = 0
+    eligible[avoid_mask > 0] = 0
 
     edge_mask = get_inner_edge_mask(eligible, kernel_size=3)
     edge_mask = remove_border_area(edge_mask, margin=border_margin)
@@ -425,11 +544,14 @@ def sample_valid_spur(
         if not is_valid_spur(
             trace_mask=trace_mask,
             spur_full_mask=spur_full_mask,
-            pad_avoid_mask=pad_avoid_mask,
+            avoid_mask=avoid_mask,
             start=(x, y),
+            end=(end_x, end_y),
             min_defect_area=min_defect_area,
             min_bbox_width=min_bbox_width,
             min_bbox_height=min_bbox_height,
+            min_bbox_long_side=min_bbox_long_side,
+            min_mask_elongation=min_mask_elongation,
             max_existing_trace_overlap_ratio=max_existing_trace_overlap_ratio
         ):
             continue
@@ -444,6 +566,7 @@ def sample_valid_spur(
         bbox_w = int(xs_def.max() - xs_def.min() + 1)
         bbox_h = int(ys_def.max() - ys_def.min() + 1)
         defect_area = int(np.count_nonzero(defect_mask))
+        shape_metrics = compute_mask_shape_metrics(defect_mask) or {}
 
         geometry_info = {
             "start_xy": [int(x), int(y)],
@@ -457,6 +580,9 @@ def sample_valid_spur(
             "elongation": float(elongation),
             "defect_area_px": int(defect_area),
             "defect_bbox_size_px": [int(bbox_w), int(bbox_h)],
+            "defect_bbox_long_side_px": int(max(bbox_w, bbox_h)),
+            "defect_mask_elongation": float(shape_metrics.get("mask_elongation", 0.0)),
+            "avoid_dark_features": True,
             "attempts_used": int(attempt)
         }
 
@@ -468,6 +594,7 @@ def sample_valid_spur(
         print(f"[INFO] PCA elongation: {elongation:.2f}")
         print(f"[INFO] Defect area: {defect_area} px")
         print(f"[INFO] Defect bbox size: {bbox_w} x {bbox_h} px")
+        print(f"[INFO] Defect mask elongation: {shape_metrics.get('mask_elongation', 0.0):.2f}")
 
         return defect_mask, (cx, cy), geometry_info
 
@@ -693,7 +820,11 @@ def generate_one_sample(args, image: np.ndarray, trace_mask: np.ndarray,
         min_defect_area=args.min_defect_area,
         min_bbox_width=args.min_bbox_width,
         min_bbox_height=args.min_bbox_height,
-        max_existing_trace_overlap_ratio=args.max_existing_trace_overlap_ratio
+        min_bbox_long_side=args.min_bbox_long_side,
+        min_mask_elongation=args.min_mask_elongation,
+        max_existing_trace_overlap_ratio=args.max_existing_trace_overlap_ratio,
+        dark_v_max=args.dark_v_max,
+        dark_dilate=args.dark_dilate
     )
 
     blend_radius = max(geometry_info["spur_width"], 5)
@@ -799,7 +930,11 @@ def generate_one_sample(args, image: np.ndarray, trace_mask: np.ndarray,
             "min_defect_area": int(args.min_defect_area),
             "min_bbox_width": int(args.min_bbox_width),
             "min_bbox_height": int(args.min_bbox_height),
+            "min_bbox_long_side": int(args.min_bbox_long_side),
+            "min_mask_elongation": float(args.min_mask_elongation),
             "max_existing_trace_overlap_ratio": float(args.max_existing_trace_overlap_ratio),
+            "dark_v_max": int(args.dark_v_max),
+            "dark_dilate": int(args.dark_dilate),
             "seed": args.seed,
             "crop_size": int(args.crop_size)
         },

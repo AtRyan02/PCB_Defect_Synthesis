@@ -3,10 +3,43 @@
 *.png
 dataset/
 outputs/
+outputs_sd/
 
 # Large model weights
 *.pt
 *.safetensors
+*.pth
+*.onnx
+*.engine
 
 # Python caching
 __pycache__/
+
+# IDE / editor
+.idea/
+.vscode/
+
+# Virtual environments
+.venv/
+venv/
+env/
+*.egg-info/
+
+# YOLO datasets
+dataset_yolo*/
+dataset_yolo_*/
+
+# YOLO / training runs
+runs/
+runs_pcb/
+
+# Large image / generated artifacts
+*.mp4
+*.avi
+*.mov
+
+# Logs and temporary files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
